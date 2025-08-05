@@ -8,4 +8,12 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
+class GraphConfig(BaseSettings):
+    uri: str
+    username: str
+    password: str
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
 config = Settings()
+graph_config = GraphConfig()
