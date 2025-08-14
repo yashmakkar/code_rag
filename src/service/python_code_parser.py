@@ -102,13 +102,7 @@ class PythonCodeParser:
         if not class_name:
             return None
         
-        # Create relationship with parent (file or class)
-        if parent_id:
-            parent_name = parent_id.split(":")[-1]
-            node_id = f"class:{parent_name}.{class_name}"
-        else:
-            parent_id = f"file:{Path(file_path).name}"
-            node_id = f"class:{class_name}"
+        node_id = f"class:{class_name}"
         
         if node_id not in self.processed_nodes:
             # Extract docstring and base classes
@@ -127,6 +121,10 @@ class PythonCodeParser:
                 }
             })
             self.processed_nodes.add(node_id)
+
+            # Create relationship with parent (file or class)
+            if not parent_id:
+                parent_id = f"file:{Path(file_path).name}"
             
             self._add_relationship(node_id, parent_id, "DEFINED_IN")
         
@@ -137,14 +135,8 @@ class PythonCodeParser:
         func_name = self._extract_identifier(node)
         if not func_name:
             return None
-
-        # Create relationship with parent (file or class)
-        if parent_id:
-            parent_name = parent_id.split(":")[-1]
-            node_id = f"method:{parent_name}.{func_name}"
-        else:
-            parent_id = f"file:{Path(file_path).name}"
-            node_id = f"method:{func_name}" 
+            
+        node_id = f"method:{func_name}" 
         
         if node_id not in self.processed_nodes:
             # Extract function details
@@ -165,6 +157,10 @@ class PythonCodeParser:
                 }
             })
             self.processed_nodes.add(node_id)
+
+            # Create relationship with parent (file or class)
+            if not parent_id:
+                parent_id = f"file:{Path(file_path).name}"
             
             self._add_relationship(node_id, parent_id, "DEFINED_IN")
         
