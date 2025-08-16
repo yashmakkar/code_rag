@@ -85,13 +85,13 @@ class PythonCodeParser:
         if node_id not in self.processed_nodes:
             self.nodes.append({
                 "type": "node",
-                "id": node_id,
                 "labels": ["File"],
                 "properties": {
+                    "id": node_id,
                     "name": file_name,
                     "description": "",
                     "file_path": file_path,
-                    "text": node.text.decode("utf-8")
+                    "code_block": node.text.decode("utf-8")
                 }
             })
             self.processed_nodes.add(node_id)
@@ -110,14 +110,14 @@ class PythonCodeParser:
             
             self.nodes.append({
                 "type": "node",
-                "id": node_id,
                 "labels": ["Class"],
                 "properties": {
+                    "id": node_id,
                     "name": class_name,
                     "description": "",
                     "file_path": file_path,
                     "base_classes": base_classes,
-                    "text": node.text.decode("utf-8")
+                    "code_block": node.text.decode("utf-8")
                 }
             })
             self.processed_nodes.add(node_id)
@@ -145,15 +145,15 @@ class PythonCodeParser:
             
             self.nodes.append({
                 "type": "node",
-                "id": node_id,
                 "labels": ["Method"],
                 "properties": {
+                    "id": node_id,
                     "name": func_name,
                     "description": "",
                     "file_path": file_path,
                     "method_type": "async" if is_async else "sync",
                     "parameters": parameters,
-                    "text": node.text.decode("utf-8")
+                    "code_block": node.text.decode("utf-8")
                 }
             })
             self.processed_nodes.add(node_id)
@@ -183,13 +183,13 @@ class PythonCodeParser:
         
         self.nodes.append({
             "type": "node",
-            "id": import_id,
             "labels": ["Import"],
             "properties": {
+                "id": import_id,
                 "name": "imports",
                 "description": f"All imports for {file_name}",
                 "file_path": file_path,
-                "import_details": "\n".join(imports)
+                "code_block": "\n".join(imports)
             }
         })
         self.processed_nodes.add(import_id)
