@@ -22,17 +22,34 @@ class GraphDB:
             return None
 
     def create_node(self, labels: List[str], properties: Dict[str, Any]) -> None:
-
-        filters = {k: properties.get(k) for k in ["id", "file_path"] if properties.get(k) is not None}
-        # Use get_node for existence check
+        filters = {k: properties.get(k) for k in ["id"] if properties.get(k) is not None}
+        label_str = ":" + ":".join(labels)
         existing_node = self.get_node(labels, filters)
         if existing_node:
-            print("Node already present")
+            # Update labels and properties
+            update_labels_query = (
+                f"MATCH (n {{id: $id}}) "
+                f"REMOVE n:{':'.join(existing_node.labels)} "
+                f"SET n{label_str} "
+            )
+            update_props_query = (
+                f"MATCH (n{label_str} {{id: $id}}) "
+                f"SET n += $props"
+            )
+            with self.driver.session() as session:
+                try:
+                    # Remove old labels and set new ones
+                    session.run(update_labels_query, id=properties["id"])
+                    # Update properties
+                    session.run(update_props_query, id=properties["id"], props=properties)
+                    print(f"Node with id {properties['id']} updated with labels {labels} and properties {properties}")
+                except Exception as e:
+                    print(f"Error updating node: {e}")
             return
-
-        label_str = ":" + ":".join(labels)
+        
+        properties["name"] = properties.get("name", properties["id"].split(":")[-1])
+    
         create_query = f"CREATE (n{label_str} $props)"
-
         with self.driver.session() as session:
             try:
                 session.run(create_query, props=properties)

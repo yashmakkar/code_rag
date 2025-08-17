@@ -4,7 +4,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Dict, List, Optional
-from dataclasses import dataclass
+from src.service.graph_services import GraphDB
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -16,15 +16,12 @@ class PythonCodeParser:
     def __init__(self):
         self.language = Language(tspython.language())
         self.parser = Parser(self.language)
-        self.nodes = []
-        self.relationships = []
         self.processed_nodes = set()  # Avoid duplicates
-        self.imports = []  
+        self.imports = []
+        self.graph_db = GraphDB()  
         
     def reset(self):
         """Reset parser state for new file"""
-        self.nodes.clear()
-        self.relationships.clear()
         self.processed_nodes.clear()
         self.imports.clear()
     
@@ -46,8 +43,6 @@ class PythonCodeParser:
             
             # Create single import node for this file if imports exist
             self._create_import_node(file_path)
-            
-            return self.nodes, self.relationships
             
         except Exception as e:
             logger.error(f"Error parsing file {file_path}: {e}")
@@ -83,17 +78,15 @@ class PythonCodeParser:
         """Handle module node"""
         node_id = f"file:{file_name}"
         if node_id not in self.processed_nodes:
-            self.nodes.append({
-                "type": "node",
-                "labels": ["File"],
-                "properties": {
-                    "id": node_id,
-                    "name": file_name,
-                    "description": "",
-                    "file_path": file_path,
-                    "code_block": node.text.decode("utf-8")
-                }
-            })
+            labels = ["File"]
+            properties = {
+                "id": node_id,
+                "name": file_name,
+                "description": "",
+                "file_path": file_path,
+                "code_block": node.text.decode("utf-8")
+            }
+            self.graph_db.create_node(labels, properties)
             self.processed_nodes.add(node_id)
     
     def _handle_class_definition(self, node: Node, file_path: str, parent_id: Optional[str]) -> Optional[str]:
@@ -107,19 +100,17 @@ class PythonCodeParser:
         if node_id not in self.processed_nodes:
             # Extract docstring and base classes
             base_classes = self._extract_base_classes(node)
-            
-            self.nodes.append({
-                "type": "node",
-                "labels": ["Class"],
-                "properties": {
-                    "id": node_id,
-                    "name": class_name,
-                    "description": "",
-                    "file_path": file_path,
-                    "base_classes": base_classes,
-                    "code_block": node.text.decode("utf-8")
-                }
-            })
+
+            labels = ["Class"]
+            properties = {
+                "id": node_id,
+                "name": class_name,
+                "description": "",
+                "file_path": file_path,
+                "base_classes": base_classes,
+                "code_block": node.text.decode("utf-8")
+            }
+            self.graph_db.create_node(labels, properties)
             self.processed_nodes.add(node_id)
 
             # Create relationship with parent (file or class)
@@ -142,20 +133,19 @@ class PythonCodeParser:
             # Extract function details
             is_async = any(child.type == "async" for child in node.children)
             parameters = self._extract_parameters(node)
+
+            labels = ["Method"]
+            properties = {
+                "id": node_id,
+                "name": func_name,
+                "description": "",
+                "file_path": file_path,
+                "method_type": "async" if is_async else "sync",
+                "parameters": parameters,
+                "code_block": node.text.decode("utf-8")
+            }
             
-            self.nodes.append({
-                "type": "node",
-                "labels": ["Method"],
-                "properties": {
-                    "id": node_id,
-                    "name": func_name,
-                    "description": "",
-                    "file_path": file_path,
-                    "method_type": "async" if is_async else "sync",
-                    "parameters": parameters,
-                    "code_block": node.text.decode("utf-8")
-                }
-            })
+            self.graph_db.create_node(labels, properties)
             self.processed_nodes.add(node_id)
 
             # Create relationship with parent (file or class)
@@ -180,18 +170,17 @@ class PythonCodeParser:
             
         file_name = Path(file_path).name
         import_id = f"import:{file_name}"
+
+        labels = ["Import"]
+        properties = {
+            "id": import_id,
+            "name": "imports",
+            "description": f"All imports for {file_name}",
+            "file_path": file_path,
+            "code_block": "\n".join(imports)
+        }
         
-        self.nodes.append({
-            "type": "node",
-            "labels": ["Import"],
-            "properties": {
-                "id": import_id,
-                "name": "imports",
-                "description": f"All imports for {file_name}",
-                "file_path": file_path,
-                "code_block": "\n".join(imports)
-            }
-        })
+        self.graph_db.create_node(labels, properties)
         self.processed_nodes.add(import_id)
         
         # Link to file
@@ -259,78 +248,7 @@ class PythonCodeParser:
         """Add relationship between nodes"""
         if properties is None:
             properties = {}
-            
-        relationship = {
-            "type": "relationship",
-            "start": {"id": start_id},
-            "end": {"id": end_id},
-            "label": label,
-            "properties": properties
-        }
         
-        # Avoid duplicate relationships
-        rel_key = f"{start_id}-{label}-{end_id}"
-        if not any(rel_key == f"{r['start']['id']}-{r['label']}-{r['end']['id']}" for r in self.relationships):
-            self.relationships.append(relationship)
-    
-    def save_results(self, output_dir: str, filename_prefix: str = "parsed"):
-        """Save parsing results to files"""
-        output_path = Path(output_dir)
-        output_path.mkdir(exist_ok=True)
-        
-        # Save full structure
-        structure_file = output_path / f"{filename_prefix}_structure.json"
-        with open(structure_file, "w", encoding="utf-8") as f:
-            json.dump({
-                "nodes": self.nodes,
-                "relationships": self.relationships
-            }, f, indent=2, default=str)
-        
-        # Save nodes
-        nodes_file = output_path / f"{filename_prefix}_nodes.jsonl"
-        with open(nodes_file, "w", encoding="utf-8") as f:
-            for node in self.nodes:
-                f.write(json.dumps(node, default=str) + "\n")
-        
-        # Save relationships
-        relationships_file = output_path / f"{filename_prefix}_relationships.jsonl"
-        with open(relationships_file, "w", encoding="utf-8") as f:
-            for rel in self.relationships:
-                f.write(json.dumps(rel, default=str) + "\n")
-        
-        logger.info(f"Results saved to {output_path}")
-        logger.info(f"Nodes: {len(self.nodes)}, Relationships: {len(self.relationships)}")
-
-if __name__ == "__main__":
-    """Main function to demonstrate usage"""
-    # Example usage
-    parser = PythonCodeParser()
-    
-    # Replace with your file path
-    file_path = "/Users/yashmakkar/Documents/Project/code_rag/temp_dir/test_samples/agent_to_agent/agent_1/agent1.py"
-    
-    try:
-        nodes, relationships = parser.parse_file(file_path)
-        
-        # Save results
-        parser.save_results("/Users/yashmakkar/Documents/Project/code_rag/src/notebooks", "test")
-        
-        print(f"Parsed {len(nodes)} nodes and {len(relationships)} relationships")
-        
-        # Print summary
-        node_types = {}
-        for node in nodes:
-            labels = node.get('labels', [])
-            for label in labels:
-                node_types[label] = node_types.get(label, 0) + 1
-        
-        print("Node types found:")
-        for node_type, count in node_types.items():
-            print(f"  {node_type}: {count}")
-            
-    except FileNotFoundError:
-        print("Please update the file_path variable with a valid Python file")
-    except Exception as e:
-        print(f"Error: {e}")
+        self.graph_db.create_node_and_relationship(start_id, end_id, label, properties)
 
 
