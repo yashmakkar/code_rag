@@ -64,4 +64,7 @@ Desktop.ini
 # notebook files
 *.ipynb_checkpoints
 *.ipynb
-/notebooks
+notebooks/
+
+# cloned repos
+temp_dir/
