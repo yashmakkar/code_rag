@@ -39,12 +39,20 @@ def split_documentation_docs(docs: List[Dict[str, Any]]) -> List[Document]:
         split_docs = splitter.split_text(content)
 
         for doc in split_docs:
-            splitted_data.append(
-                Document(
-                    page_content=doc.page_content,
-                    metadata={"file_path": file_path, **doc.metadata},
+            if isinstance(doc, Document):
+                splitted_data.append(
+                    Document(
+                        page_content=doc.page_content,
+                        metadata={"file_path": file_path, **doc.metadata},
+                    )
                 )
-            )
+            else:
+                splitted_data.append(
+                    Document(
+                        page_content=doc,
+                        metadata={"file_path": file_path},
+                    )
+                )
 
     return splitted_data
 
@@ -160,11 +168,11 @@ async def build_repo_index(llm: Any, github_client: Github) -> List[Document]:
     code_data = zip_file_data(code_files, code_content)
     doc_data = zip_file_data(doc_files, doc_content)
 
-    # Generate code summaries with LLM
-    code_docs = await generate_descriptions(llm, code_data)
-
     # Split documentation into chunks
     splitted_docs = split_documentation_docs(doc_data)
+
+    # Generate code summaries with LLM
+    code_docs = await generate_descriptions(llm, code_data)
 
     # Consolidate for final indexing
     return code_docs + splitted_docs

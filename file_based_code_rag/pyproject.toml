@@ -7,7 +7,9 @@ requires-python = ">=3.12"
 dependencies = [
     "aiohttp>=3.12.15",
     "langchain>=0.3.27",
+    "langchain-huggingface>=0.3.1",
     "langchain-openai>=0.3.30",
+    "langchain-qdrant>=0.2.0",
     "langchain-text-splitters>=0.3.9",
     "pydantic-settings>=2.10.1",
     "python-dotenv>=1.1.1",

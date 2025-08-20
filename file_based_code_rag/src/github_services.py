@@ -69,6 +69,9 @@ class Github:
         except Exception:
             pass
         return None
+    
+    def get_owner_repo_name(self) -> str:
+        return f"{self.owner}/{self.repo}"
 
     async def get_all_useful_files(self) -> List[str]:
         """
