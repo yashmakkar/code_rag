@@ -4,7 +4,7 @@ from aiohttp import ClientSession
 from urllib.parse import urlparse
 from typing import List, Optional
 from src.utils.config import config
-from src.utils.data_config import ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_SIZE
+from src.utils.data_config import ALLOWED_FILE_EXTENSIONS, ALLOWED_FILE_SIZE, DOCUMENT_EXTENSIONS
 
 
 class Github:
@@ -93,15 +93,20 @@ class Github:
                     )
                 tree = (await resp.json()).get("tree", [])
 
-            useful_files = [
-                node["path"]
-                for node in tree
-                if node.get("type") == "blob"
-                and node.get("size", 0) <= ALLOWED_FILE_SIZE
-                and any(node["path"].endswith(ext) for ext in ALLOWED_FILE_EXTENSIONS)
-            ]
+            def filter_files(extensions: List[str]) -> List[str]:
+                """Helper to filter files by extensions and size constraints."""
+                return [
+                    node["path"]
+                    for node in tree
+                    if node.get("type") == "blob"
+                    and node.get("size", 0) <= ALLOWED_FILE_SIZE
+                    and any(node["path"].lower().endswith(ext) for ext in extensions)
+                ]
 
-        return useful_files
+            code_files = filter_files(ALLOWED_FILE_EXTENSIONS)
+            doc_files = filter_files(DOCUMENT_EXTENSIONS)
+
+        return code_files, doc_files
 
     async def download_useful_files(self, useful_files: List[str]) -> List[Optional[str]]:
         """
