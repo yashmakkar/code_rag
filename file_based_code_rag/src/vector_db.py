@@ -70,4 +70,12 @@ class QdrantClient:
                 "Vector store not initialized. "
                 "Call add_documents() or connect_existing_collection() first."
             )
-        return self.vector_store.similarity_search(query, k=k)
+        results = self.vector_store.similarity_search(query, k=k)
+
+        return [
+            {
+                "description": result.page_content,
+                "metadata": result.metadata
+            }
+            for result in results
+        ]
